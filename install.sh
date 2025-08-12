@@ -22,7 +22,7 @@ show_header() {
     echo " ██║  ██╗   ██║   ██║     "
     echo " ╚═╝  ╚═╝   ╚═╝   ╚═╝     "
     echo "${NC}"
-    echo "${CYAN}$REPO_NAME${NC}"
+    echo "${CYAN}$    REPO_NAME${NC}"
     echo "${YELLOW} Base Environment Setup${NC}"
     echo "--------------------------------"
 }
