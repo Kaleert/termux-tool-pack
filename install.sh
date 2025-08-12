@@ -50,6 +50,64 @@ setup_x11() {
     xhost +localhost >/dev/null 2>&1 || error_msg "Failed to set X11 permissions"
 }
 
+# Проверка и установка KTP Client
+install_ktp_client() {
+    info_msg "Checking KTP installation..."
+    
+    # 1. Проверка существования команды ktp
+    if command -v ktp >/dev/null 2>&1; then
+        info_msg "KTP client is already installed at: $(which ktp)"
+        return 0
+    fi
+
+    # 2. Проверка существования папки termux-tool-pack
+    local ktp_dir="~/termux-tool-pack"
+    if [ -d "$ktp_dir" ]; then
+        info_msg "Found existing KTP directory at: $ktp_dir"
+        
+        # Проверка необходимых файлов
+        local required_files=("ktp" "install.sh" "install_vscode.sh")
+        local missing_files=()
+        
+        for file in "${required_files[@]}"; do
+            if [ ! -f "$ktp_dir/$file" ]; then
+                missing_files+=("$file")
+            fi
+        done
+
+        if [ ${#missing_files[@]} -gt 0 ]; then
+            error_msg "Missing required files: ${missing_files[*]}"
+            info_msg "Attempting to repair..."
+            rm -rf "$ktp_dir"
+        else
+            info_msg "All required files found in directory"
+        fi
+    fi
+
+    # 3. Клонирование репозитория (если папки нет или она была удалена)
+    if [ ! -d "$ktp_dir" ]; then
+        info_msg "Cloning KTP repository..."
+        if git clone --depth 1 https://github.com/kaleert/termux-tool-pack.git "$ktp_dir" 2>/dev/null; then
+            success_msg "Repository cloned successfully"
+        else
+            error_msg "Failed to clone repository"
+            return 1
+        fi
+    fi
+
+    # 4. Установка клиента
+    info_msg "Installing KTP client..."
+    if cp -f "$ktp_dir/ktp" $PREFIX/bin/ 2>/dev/null; then
+        chmod +x $PREFIX/bin/ktp
+        success_msg "KTP client installed successfully!"
+        echo -e "Run with: ${LIME}ktp --help${NC}"
+        return 0
+    else
+        error_msg "Failed to install KTP client"
+        return 1
+    fi
+}
+
 install_base() {
     show_header
     
@@ -102,12 +160,17 @@ install_base() {
     error_msg "Failed to configure Ubuntu"
     exit 1
 }
-
+    # Вызов функции установки
+    install_ktp_client || {
+    error_msg "KTP installation failed"
+    exit 1
+}
+    
     success_msg "Base installation completed!"
-    echo -e "\nNow you can install apps with:"
-    echo -e "  ${LIME}ktp install vscode${NC}"
-    echo -e "  ${LIME}ktp install brave${NC}"
-    echo -e "  ${LIME}ktp install lxqt${NC}"
+    echo "\nNow you can install apps with:"
+    echo "  ${LIME}ktp install vscode${NC}"
+    echo "  ${LIME}ktp install brave${NC}"
+    echo "  ${LIME}ktp install lxqt${NC}"
 }
 
 install_base
