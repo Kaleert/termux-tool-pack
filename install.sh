@@ -53,18 +53,15 @@ setup_x11() {
 install_ktp_client() {
     info_msg "Checking KTP installation..."
     
-    # 1. Проверка существования команды ktp
     if command -v ktp >/dev/null 2>&1; then
         info_msg "KTP client is already installed at: $(which ktp)"
         return 0
     fi
 
-    # 2. Проверка существования папки termux-tool-pack
-    local ktp_dir="~/termux-tool-pack"
+    local ktp_dir="$HOME/termux-tool-pack"
     if [ -d "$ktp_dir" ]; then
         info_msg "Found existing KTP directory at: $ktp_dir"
         
-        # Проверка необходимых файлов
         local required_files=("ktp" "install.sh" "install_vscode.sh")
         local missing_files=()
         
@@ -83,7 +80,6 @@ install_ktp_client() {
         fi
     fi
 
-    # 3. Клонирование репозитория (если папки нет или она была удалена)
     if [ ! -d "$ktp_dir" ]; then
         info_msg "Cloning KTP repository..."
         if git clone --depth 1 https://github.com/kaleert/termux-tool-pack.git "$ktp_dir" 2>/dev/null; then
@@ -94,12 +90,11 @@ install_ktp_client() {
         fi
     fi
 
-    # 4. Установка клиента
     info_msg "Installing KTP client..."
     if cp -f "$ktp_dir/ktp" $PREFIX/bin/ 2>/dev/null; then
         chmod +x $PREFIX/bin/ktp
         success_msg "KTP client installed successfully!"
-        echo -e "Run with: ${LIME}ktp --help${NC}"
+        printf "Run with: ${LIME}ktp --help${NC}\n"
         return 0
     else
         error_msg "Failed to install KTP client"
