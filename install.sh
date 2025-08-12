@@ -10,7 +10,6 @@ NC='\033[0m'
 
 # Repo info
 REPO_NAME="Kaleert's Tool Pack"
-REPO_URL="https://github.com/kaleert/termux-tool-pack"
 
 show_header() {
     clear
@@ -22,7 +21,7 @@ show_header() {
     echo " ██║  ██╗   ██║   ██║     "
     echo " ╚═╝  ╚═╝   ╚═╝   ╚═╝     "
     echo "${NC}"
-    echo "${CYAN}$REPO_NAME${NC}"
+    echo "${CYAN}    $REPO_NAME${NC}"
     echo "${YELLOW} Base Environment Setup${NC}"
     echo "--------------------------------"
 }
