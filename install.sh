@@ -74,27 +74,31 @@ install_base() {
      info_msg "Ubuntu is already installed"
  fi
 
-    # Обновляем пакеты (с подавлением предупреждений)
-    apt-get update -qq -y >/dev/null 2>&1
-    
-    # Устанавливаем зависимости (с явным указанием версий для избежания конфликтов)
-    apt-get install -qq -y --allow-downgrades --allow-remove-essential \
-        wget \
-        xdotool \
-        x11-apps \
-        libgtk-3-0t64 \
-        libxss1 \
-        libasound2t64 \
-        dbus \
-        dbus-x11 >/dev/null 2>&1
-    
-    # Проверяем успешность установки
-    for pkg in wget xdotool dbus; do
-        if ! dpkg -l | grep -q \"^ii  \$pkg\"; then
-            exit 1
-        fi
-    done
-" || {
+    # Базовая настройка Ubuntu
+    info_msg "Configuring Ubuntu environment..."
+    proot-distro login ubuntu -- bash -c "
+        export DEBIAN_FRONTEND=noninteractive
+            # Обновляем пакеты (с подавлением предупреждений)
+            apt-get update -qq -y >/dev/null 2>&1
+            
+            # Устанавливаем зависимости (с явным указанием версий для избежания конфликтов)
+            apt-get install -qq -y --allow-downgrades --allow-remove-essential \
+                wget \
+                xdotool \
+                x11-apps \
+                libgtk-3-0t64 \
+                libxss1 \
+                libasound2t64 \
+                dbus \
+                dbus-x11 >/dev/null 2>&1
+            
+            # Проверяем успешность установки
+            for pkg in wget xdotool dbus; do
+                if ! dpkg -l | grep -q \"^ii  \$pkg\"; then
+                    exit 1
+                fi
+            done
+        " || {
     error_msg "Failed to configure Ubuntu"
     exit 1
 }
