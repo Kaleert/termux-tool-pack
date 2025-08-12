@@ -79,7 +79,7 @@ install_base() {
     proot-distro login ubuntu -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq -y >/dev/null
-        apt-get install -qq -y wget curl xdotool x11-apps libgtk-3-0 libxss1 libasound2 dbus dbus-x11 >/dev/null
+        apt-get install -qq -y wget xdotool x11-apps libgtk-3-0t64 libxss1 libasound2t64 dbus dbus-x11 || exit 1
     " || error_msg "Failed to configure Ubuntu"
 
     success_msg "Base installation completed!"
