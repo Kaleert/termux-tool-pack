@@ -39,6 +39,7 @@ success_msg() {
 info_msg() {
     echo "${YELLOW}[INFO] ${CYAN}$1${NC}"
 }
+
 install_client() {
     info_msg "Checking KTP installation..."
     
@@ -52,7 +53,8 @@ install_client() {
     local ktp_dir="~/termux-tool-pack"
     if [ -d "$ktp_dir" ]; then
         info_msg "Found existing KTP directory at: $ktp_dir"
-        
+    fi
+    
     if [ ! -d "$ktp_dir" ]; then
         info_msg "Cloning KTP repository..."
         if git clone --depth 1 https://github.com/kaleert/termux-tool-pack.git "$ktp_dir" 2>/dev/null; then
