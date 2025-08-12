@@ -44,8 +44,8 @@ install_client() {
     info_msg "Checking KTP installation..."
     
     # 1. Проверка существования команды ktp
-    if command -v ktp >/dev/null 2>&1; then
-        info_msg "KTP client is already installed at: $(which ktp)"
+    if [ -f "$PREFIX/bin/ktp" ]; then
+        info_msg "KTP client is already installed at: $PREFIX/bin/ktp"
         return 0
     fi
     
