@@ -44,7 +44,7 @@ setup_x11() {
     info_msg "Starting X server..."
     termux-x11 :0 >/dev/null 2>&1 &
     export DISPLAY=:0
-    sleep 2
+    sleep 5
 
     info_msg "Setting up X11 permissions..."
     xhost +localhost >/dev/null 2>&1 || error_msg "Failed to set X11 permissions"
