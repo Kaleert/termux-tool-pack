@@ -14,17 +14,17 @@ REPO_URL="https://github.com/kaleert/termux-tool-pack"
 
 show_header() {
     clear
-    echo -e "${MAGENTA}"
-    echo -e " ██╗  ██╗████████╗██████╗ "
-    echo -e " ██║ ██╔╝╚══██╔══╝██╔══██╗"
-    echo -e " █████╔╝    ██║   ██████╔╝"
-    echo -e " ██╔═██╗    ██║   ██╔═══╝ "
-    echo -e " ██║  ██╗   ██║   ██║     "
-    echo -e " ╚═╝  ╚═╝   ╚═╝   ╚═╝     "
-    echo -e "${NC}"
-    echo -e "${CYAN}$REPO_NAME${NC}"
-    echo -e "${YELLOW} Base Environment Setup${NC}"
-    echo -e "--------------------------------"
+    echo "${MAGENTA}"
+    echo " ██╗  ██╗████████╗██████╗ "
+    echo " ██║ ██╔╝╚══██╔══╝██╔══██╗"
+    echo " █████╔╝    ██║   ██████╔╝"
+    echo " ██╔═██╗    ██║   ██╔═══╝ "
+    echo " ██║  ██╗   ██║   ██║     "
+    echo " ╚═╝  ╚═╝   ╚═╝   ╚═╝     "
+    echo "${NC}"
+    echo "${CYAN}$REPO_NAME${NC}"
+    echo "${YELLOW} Base Environment Setup${NC}"
+    echo "--------------------------------"
 }
 
 error_msg() {
@@ -62,9 +62,12 @@ install_base() {
 
     setup_x11
 
-    info_msg "Setting up Ubuntu proot..."
-    if ! proot-distro list | grep -q "ubuntu"; then
-        yes | proot-distro install ubuntu >/dev/null 2>&1 || error_msg "Failed to install Ubuntu"
+    # Check if Ubuntu is installed
+    if proot-distro list | grep -q "ubuntu"; then
+        info_msg "Ubuntu is already installed."
+    else
+        info_msg "Installing Ubuntu with proot-distro..."
+        proot-distro install ubuntu || error_msg "Failed to install Ubuntu"
     fi
 
     # Базовая настройка Ubuntu
