@@ -1,0 +1,297 @@
+#!/data/data/com.termux/files/usr/bin/python3
+
+import subprocess
+import time
+import signal
+import sys
+import shutil
+import argparse
+import webbrowser
+
+# Конфигурация
+REPO_NAME = "termux-tool-pack"
+REPO_BASE_URL = "https://raw.githubusercontent.com/kaleert/{repo}/main".format(repo=REPO_NAME)
+X11_DISPLAY = ":0"
+SOCAT_PORT = "6000"
+PROOT_DISTRO = "ubuntu"
+VSCODE_CMD = "code --no-sandbox --disable-gpu --user-data-dir ~/.vscode-data"
+BRAVE_CMD = "brave-browser --no-sandbox --disable-gpu 2>/dev/null"
+LXQT_CMD = "startlxqt"
+DEFAULT_SIZE = [1080, 2150]
+DEFAULT_POS = [0, 0]
+
+# Список поддерживаемых приложений
+APPS = {
+    "vscode": {
+        "name": "Visual Studio Code",
+        "cmd": VSCODE_CMD,
+        "install": f"curl -s {REPO_BASE_URL}/install_vscode.sh | sh"
+    },
+    "brave": {
+        "name": "Brave Browser",
+        "cmd": BRAVE_CMD,
+        "install": f"curl -s {REPO_BASE_URL}/install_brave.sh | sh"
+    },
+    "lxqt": {
+        "name": "LXQt Desktop",
+        "cmd": LXQT_CMD,
+        "install": f"curl -s {REPO_BASE_URL}/install_lxqt.sh | sh"
+    }
+}
+
+def check_dependencies():
+    """Проверка необходимых программ."""
+    required = ["termux-x11", "proot-distro", "socat", "xdotool"]
+    missing = []
+    for cmd in required:
+        if shutil.which(cmd) is None:
+            missing.append(cmd)
+    
+    if missing:
+        print(f"Установите зависимости: {' '.join(missing)}")
+        print("Команды для установки:")
+        print("pkg install x11-repo -y && pkg install termux-x11 proot-distro socat xdotool -y")
+        sys.exit(1)
+
+def cleanup(signum, frame):
+    """Завершение всех процессов при выходе."""
+    print("\nЗавершение процессов...")
+    subprocess.run(["pkill", "-f", "termux-x11"], stderr=subprocess.DEVNULL)
+    subprocess.run(["pkill", "-f", "socat"], stderr=subprocess.DEVNULL)
+    for app in APPS.values():
+        subprocess.run(["pkill", "-f", app["cmd"].split()[0]], stderr=subprocess.DEVNULL)
+    sys.exit(0)
+
+def is_app_installed(app_key):
+    """Проверка установлено ли приложение в proot."""
+    try:
+        result = subprocess.run(
+            ["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", 
+             f"command -v {APPS[app_key]['cmd'].split()[0]}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        return result.returncode == 0
+    except subprocess.CalledProcessError:
+        return False
+
+def install_app(app_key):
+    """Установка приложения через curl."""
+    print(f"Установка {APPS[app_key]['name']}...")
+    try:
+        subprocess.run(
+            ["bash", "-c", APPS[app_key]["install"]],
+            check=True
+        )
+        print(f"{APPS[app_key]['name']} успешно установлен!")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Ошибка при установке {APPS[app_key]['name']}: {e}")
+        return False
+
+def choose_app_interactively():
+    """Интерактивный выбор приложения."""
+    print(f"\n{REPO_NAME} - Управление приложениями X11")
+    print("Выберите приложение для запуска:")
+    
+    for i, (key, app) in enumerate(APPS.items(), 1):
+        status = "Установлено" if is_app_installed(key) else "Не установлено"
+        print(f"{i}) {app['name']} [{status}]")
+    
+    print("0) Выход")
+    
+    while True:
+        try:
+            choice = int(input("Ваш выбор (0-3): "))
+            if choice == 0:
+                sys.exit(0)
+            elif 1 <= choice <= len(APPS):
+                selected_key = list(APPS.keys())[choice-1]
+                if not is_app_installed(selected_key):
+                    if input(f"{APPS[selected_key]['name']} не установлен. Установить сейчас? (y/N): ").lower() == 'y':
+                        if install_app(selected_key):
+                            return APPS[selected_key]["cmd"]
+                        else:
+                            continue
+                    else:
+                        continue
+                return APPS[selected_key]["cmd"]
+            print("Неверный выбор. Попробуйте снова.")
+        except ValueError:
+            print("Пожалуйста, введите число.")
+
+def list_apps():
+    """Показать список доступных приложений."""
+    print(f"\n{REPO_NAME} - Доступные приложения:")
+    for i, (key, app) in enumerate(APPS.items(), 1):
+        status = "✓" if is_app_installed(key) else "×"
+        print(f"{i}. {app['name']} {status}")
+    print("\nДля установки используйте:")
+    print(f"  {sys.argv[0]} install <app>")
+    print("Доступные приложения для установки: vscode, brave, lxqt")
+
+def run_app(app_cmd, size, pos):
+    """Запуск приложения с указанными размерами и позицией."""
+    # Запуск Termux-X11
+    print("Запуск Termux-X11...")
+    subprocess.Popen(["termux-x11", X11_DISPLAY], 
+                   stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL)
+    time.sleep(2)
+
+    # Запуск Socat
+    print("Запуск проброса X11...")
+    subprocess.Popen(
+        ["socat", f"TCP-LISTEN:{SOCAT_PORT},reuseaddr,fork", 
+         f"UNIX-CLIENT:/data/data/com.termux/files/usr/tmp/.X11-unix/X0"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    time.sleep(1)
+
+    # Запуск приложения в proot
+    print("Запуск приложения...")
+    proot_cmd = f"""
+        export DISPLAY=127.0.0.1{X11_DISPLAY};
+        export PULSE_SERVER=127.0.0.1;
+        dbus-launch --exit-with-session {app_cmd}
+    """
+    try:
+        subprocess.Popen(["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", proot_cmd],
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        print(f"Ошибка запуска приложения: {e}")
+        cleanup(None, None)
+    
+    # Изменение размера и позиции окна
+    time.sleep(5)  # Даем время окну появиться
+    if size:
+        if not resize_window(size[0], size[1]):
+            print("Не удалось изменить размер окна")
+    if pos:
+        if not move_window(pos[0], pos[1]):
+            print("Не удалось переместить окно")
+
+def resize_window(width, height):
+    """Изменение размера окна с обработкой ошибок."""
+    resize_cmd = f"""
+        export DISPLAY={X11_DISPLAY};
+        WIN_ID=$(xdotool getwindowfocus 2>/dev/null);
+        if [ -n "$WIN_ID" ]; then
+            xdotool windowsize $WIN_ID {width} {height} && echo "SUCCESS";
+        fi
+    """
+    try:
+        result = subprocess.run(["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", resize_cmd],
+                              capture_output=True, text=True)
+        if "SUCCESS" in result.stdout:
+            print(f"✓ Размер окна изменен на {width}x{height}")
+            return True
+        else:
+            print("× Не удалось изменить размер окна (окно не найдено или DISPLAY недоступен)")
+            return False
+    except subprocess.CalledProcessError:
+        print("× Ошибка при изменении размера окна")
+        return False
+
+def move_window(x, y):
+    """Изменение позиции окна с обработкой ошибок."""
+    move_cmd = f"""
+        export DISPLAY={X11_DISPLAY};
+        WIN_ID=$(xdotool getwindowfocus 2>/dev/null);
+        if [ -n "$WIN_ID" ]; then
+            xdotool windowmove $WIN_ID {x} {y} && echo "SUCCESS";
+        fi
+    """
+    try:
+        result = subprocess.run(["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", move_cmd],
+                              capture_output=True, text=True)
+        if "SUCCESS" in result.stdout:
+            print(f"✓ Окно перемещено в позицию ({x}, {y})")
+            return True
+        else:
+            print("× Не удалось переместить окно (окно не найдено или DISPLAY недоступен)")
+            return False
+    except subprocess.CalledProcessError:
+        print("× Ошибка при перемещении окна")
+        return False
+
+def parse_args():
+    """Разбор аргументов командной строки."""
+    parser = argparse.ArgumentParser(
+        description=f"{REPO_NAME} - Запуск графических приложений в Termux через X11",
+        epilog=f"Примеры:\n  {sys.argv[0]} --app vscode\n  {sys.argv[0]} install brave\n  {sys.argv[0]} list"
+    )
+    
+    # Основные команды
+    subparsers = parser.add_subparsers(dest="command", help="Доступные команды")
+    
+    # Команда run (по умолчанию)
+    run_parser = subparsers.add_parser("run", help="Запуск приложения (по умолчанию)")
+    run_parser.add_argument("--app", "-a", choices=APPS.keys(), 
+                          help="Выберите приложение для запуска")
+    run_parser.add_argument("--size", "-s", nargs=2, type=int, metavar=("WIDTH", "HEIGHT"),
+                          help="Установить размер окна (ширина высота)")
+    run_parser.add_argument("--pos", "-p", nargs=2, type=int, metavar=("X", "Y"),
+                          help="Установить позицию окна (X Y)")
+    
+    # Команда install
+    install_parser = subparsers.add_parser("install", help="Установка приложения")
+    install_parser.add_argument("app", choices=APPS.keys(), help="Приложение для установки")
+    
+    # Команда list
+    subparsers.add_parser("list", help="Показать список доступных приложений")
+    
+    # Команды для управления окном
+    resize_parser = subparsers.add_parser("resize", help="Изменить размер окна")
+    resize_parser.add_argument("width", type=int, help="Ширина окна")
+    resize_parser.add_argument("height", type=int, help="Высота окна")
+    
+    move_parser = subparsers.add_parser("move", help="Переместить окно")
+    move_parser.add_argument("x", type=int, help="Позиция по X")
+    move_parser.add_argument("y", type=int, help="Позиция по Y")
+    
+    return parser.parse_args()
+
+def main():
+    # Проверка зависимостей
+    check_dependencies()
+    
+    # Обработка Ctrl+C
+    signal.signal(signal.SIGINT, cleanup)
+    
+    # Разбор аргументов
+    args = parse_args()
+    
+    if not hasattr(args, "command"):
+        args.command = "run"
+    
+    if args.command == "install":
+        install_app(args.app)
+    elif args.command == "list":
+        list_apps()
+    elif args.command == "resize":
+        resize_window(args.width, args.height)
+    elif args.command == "move":
+        move_window(args.x, args.y)
+    elif args.command == "run":
+        # Определяем команду для запуска
+        if args.app:
+            app_cmd = APPS[args.app]["cmd"]
+        else:
+            app_cmd = choose_app_interactively()
+        
+        # Использовать аргументы или значения по умолчанию
+        size = args.size if args.size else None
+        pos = args.pos if args.pos else None
+        run_app(app_cmd, size, pos)
+    else:
+        print("Неизвестная команда. Используйте --help для справки.")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"Необработанная ошибка: {e}")
+        cleanup(None, None)
