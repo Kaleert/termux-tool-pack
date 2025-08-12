@@ -28,16 +28,16 @@ show_header() {
 }
 
 error_msg() {
-    echo -e "${RED}[✗]${NC} $1" >&2
+    echo "${RED}[✗]${NC} $1" >&2
     exit 1
 }
 
 success_msg() {
-    echo -e "${LIME}[✓]${NC} $1"
+    echo "${LIME}[✓]${NC} $1"
 }
 
 info_msg() {
-    echo -e "${YELLOW}[INFO] ${CYAN}$1${NC}"
+    echo "${YELLOW}[INFO] ${CYAN}$1${NC}"
 }
 
 setup_x11() {
@@ -62,13 +62,17 @@ install_base() {
 
     setup_x11
 
+    info_msg "Installing Ubuntu..."
     # Check if Ubuntu is installed
-    if proot-distro list | grep -q "ubuntu"; then
-        info_msg "Ubuntu is already installed."
-    else
-        info_msg "Installing Ubuntu with proot-distro..."
-        proot-distro install ubuntu || error_msg "Failed to install Ubuntu"
-    fi
+ if ! proot-distro install ubuntu 2>&1 | grep -q "already installed"; then
+     if [ $? -eq 0 ]; then
+         success_msg "Ubuntu installed successfully"
+     else
+         error_msg "Failed to install Ubuntu"
+     fi
+ else
+     info_msg "Ubuntu is already installed"
+ fi
 
     # Базовая настройка Ubuntu
     info_msg "Configuring Ubuntu environment..."
