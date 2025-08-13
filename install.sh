@@ -115,30 +115,38 @@ install_base() {
     # Базовая настройка Ubuntu
     info_msg "Configuring Ubuntu environment..."
     proot-distro login ubuntu -- bash -c "
-        NC='\033[0m'          # No Color
-        CYAN='\033[0;36m'     # Cyan
-        MAGENTA='\033[0;35m'  # Magenta
-        GREEN='\033[0;32m'    # Green
-        RED='\033[0;31m'      # Red
-        
+        # Colors
+        NC='\033[0m'
+        CYAN='\033[0;36m'
+        MAGENTA='\033[0;35m'
+        GREEN='\033[0;32m'
+        RED='\033[0;31m'
+    
+        # Message functions
         info_msg() {
-            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${MAGENTA}\$1${NC} \"
+            echo -e \"\${NC}[\${CYAN}Ubuntu\${NC}] \${MAGENTA}\$1\${NC}\"
         }
         
         success_msg() {
-            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${GREEN}\$1${NC}\"
+            echo -e \"\${NC}[\${CYAN}Ubuntu\${NC}] \${GREEN}\$1\${NC}\"
         }
         
         error_msg() {
-            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${RED}\$1${NC}\"
+            echo -e \"\${NC}[\${CYAN}Ubuntu\${NC}] \${RED}\$1\${NC}\"
         }
-        
-        info_msg \"Updating packages...\"
+    
+        # Main installation process
+        info_msg \"Starting package installation...\"
         export DEBIAN_FRONTEND=noninteractive
-        # Обновляем пакеты (с подавлением предупреждений)
-        apt-get update -qq -y >/dev/null 2>&1
         
-        # Пакеты для установки
+        # Update packages
+        info_msg \"Updating package lists...\"
+        if ! apt-get update -qq >/dev/null 2>&1; then
+            error_msg \"Failed to update package lists\"
+            exit 1
+        fi
+    
+        # Package list
         packages=(
             wget
             xdotool
@@ -149,34 +157,33 @@ install_base() {
             dbus
             dbus-x11
         )
-        
-        info_msg \"Updating package lists...\"
-        apt-get update -qq >/dev/null 2>&1
-        
+    
+        # Installation
         info_msg \"Installing required packages...\"
-        for pkg in \"${packages[@]}\"; do
-            info_msg \"Installing $pkg...\"
-            if apt-get install -qq -y --allow-downgrades --allow-remove-essential \"$pkg\" >/dev/null 2>&1; then
-                success_msg \"$pkg installed successfully\"
+        for pkg in \"\${packages[@]}\"; do
+            info_msg \"Installing \${pkg}...\"
+            if apt-get install -qq -y --allow-downgrades --allow-remove-essential \"\${pkg}\" >/dev/null 2>&1; then
+                success_msg \"\${pkg} installed successfully\"
             else
-                error_msg \"Failed to install $pkg\"
+                error_msg \"Failed to install \${pkg}\"
                 exit 1
             fi
         done
-        
+    
+        # Verification
         info_msg \"Verifying installed packages...\"
-        for pkg in \"${packages[@]}\"; do
-            if dpkg -l | grep -q \"^ii  $pkg\"; then
-                success_msg \"$pkg verified and installed correctly\"
+        for pkg in \"\${packages[@]}\"; do
+            if dpkg -l | grep -q \"^ii  \${pkg}\"; then
+                success_msg \"\${pkg} verified and installed correctly\"
             else
-                error_msg \"$pkg is not installed properly\"
+                error_msg \"\${pkg} is not installed properly\"
                 exit 1
             fi
         done
-        
+    
         success_msg \"All packages installed successfully!\"
     " || {
-    error_msg "Failed to configure Ubuntu"
+    echo -e "\033[0;31m[Error] Failed to configure Ubuntu environment\033[0m"
     exit 1
 }
     install_client || {
