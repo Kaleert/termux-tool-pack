@@ -183,7 +183,7 @@ install_base() {
     
         success_msg \"All packages installed successfully!\"
     " || {
-    echo -e "\033[0;31m[Error] Failed to configure Ubuntu environment\033[0m"
+    echo "\033[0;31m[Error] Failed to configure Ubuntu environment\033[0m"
     exit 1
 }
     install_client || {
