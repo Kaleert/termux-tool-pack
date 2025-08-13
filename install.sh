@@ -128,11 +128,6 @@ install_base() {
             echo -e \"\033[1;37m[\033[1;33mUbuntu\033[1;37m] \033[1;33m\$1\033[0m\"
         }
         
-        # Установка зависимостей для цветного вывода
-        if ! command -v tput >/dev/null; then
-            apt-get install -y ncurses-bin >/dev/null 2>&1
-        fi
-        
         ubuntu_msg 'Updating package lists...'
         apt-get update -qq -y >/dev/null 2>&1 || {
             ubuntu_msg '\033[1;31mFailed to update packages\033[0m'
