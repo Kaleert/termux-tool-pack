@@ -151,3 +151,5 @@ install_base() {
     echo "  ${LIME}ktp install brave${NC}"
     echo "  ${LIME}ktp install lxqt${NC}"
 }
+
+install_base
