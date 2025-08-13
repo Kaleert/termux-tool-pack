@@ -126,11 +126,11 @@ install_base() {
         }
         
         success_msg() {
-            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${GREEN}$1${NC}\"
+            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${GREEN}\$1${NC}\"
         }
         
         error_msg() {
-            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${RED}$1${NC}\"
+            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${RED}\$1${NC}\"
         }
         
         info_msg \"Updating packages...\"
