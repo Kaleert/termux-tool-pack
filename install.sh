@@ -140,8 +140,8 @@ install_base() {
         sleep 1
         
         info_msg \"Fixing apt & dpkg...\"
-        dpkg --configure -a
-        apt-get install -f -y
+        dpkg --configure -a >/dev/null 2>&1
+        apt-get install -f -y >/dev/null 2>&1
         export DEBIAN_FRONTEND=noninteractive
         
         # Update packages
