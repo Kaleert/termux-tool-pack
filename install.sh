@@ -119,7 +119,7 @@ install_base() {
             echo \"\033[0m[\033[1;36mUbuntu\033[0m]\033[1;35m $1\033[0m\"
         }
         
-        info msg \"Updating packages...\"
+        info_msg \"Updating packages...\"
         export DEBIAN_FRONTEND=noninteractive
         # Обновляем пакеты (с подавлением предупреждений)
         apt-get update -qq -y >/dev/null 2>&1
