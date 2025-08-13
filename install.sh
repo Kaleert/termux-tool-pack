@@ -147,7 +147,6 @@ install_base() {
                 printf \"\\r [\${spin:\$i:1}] Работаю...\"
                 sleep 0.1
             done
-            printf \"\\r [✓] Готово!    \\n\"
         ) > /dev/tty
         
         export DEBIAN_FRONTEND=noninteractive
@@ -172,7 +171,7 @@ install_base() {
         info_msg \"Installing required packages...\"
         for pkg in \"\${packages[@]}\"; do
             info_msg \"Installing \${pkg}...\"
-            if apt-get install -y -qq --allow-downgrades --allow-remove-essential \"\${pkg}\" >/dev/null 2>&1; then
+            if apt-get install -y -qq --allow-downgrades --allow-remove-essential \"\${pkg}\"; then
                 success_msg \"\${pkg} installed successfully\"
             else
                 error_msg \"Failed to install \${pkg}\"
