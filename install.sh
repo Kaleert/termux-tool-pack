@@ -120,53 +120,62 @@ install_base() {
 
     # Базовая настройка Ubuntu
     info_msg "Configuring Ubuntu environment..."
-    proot-distro login ubuntu -- bash -c "
+        proot-distro login ubuntu -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
         
-        # Определяем цветную функцию внутри proot
+        # Цвета для Ubuntu
+        RED='\033[1;31m'; GREEN='\033[1;32m'; YELLOW='\033[1;33m'
+        WHITE='\033[1;37m'; ORANGE='\033[1;33m'; NC='\033[0m'
+        
         ubuntu_msg() {
-            echo -e \"\033[1;37m[\033[1;33mUbuntu\033[1;37m] \033[1;33m\$1\033[0m\"
+            echo -e \"${WHITE}[${ORANGE}Ubuntu${WHITE}] ${YELLOW}\$1${NC}\"
         }
         
-        ubuntu_msg 'Updating package lists...'
-        apt-get update -qq -y >/dev/null 2>&1 || {
-            ubuntu_msg '\033[1;31mFailed to update packages\033[0m'
+        ubuntu_error() {
+            echo -e \"${WHITE}[${RED}ERROR${WHITE}] ${RED}\$1${NC}\" >&2
+            echo -e \"${RED}Details:${NC}\" >&2
+            echo -e \"\${RED}\$2${NC}\" >&2
+        }
+        
+        # Захватываем вывод обновления пакетов
+        update_output=\$(apt-get update -qq -y 2>&1)
+        if [ \$? -ne 0 ]; then
+            ubuntu_error \"Package update failed\" \"\$update_output\"
             exit 1
-        }
+        else
+            ubuntu_msg \"Package lists updated successfully\"
+        fi
         
-        # Массив пакетов с человеко-читаемыми именами
-        declare -A packages=(
-            [wget]='Wget'
-            [xdotool]='Xdotool'
-            [x11-apps]='X11 Apps'
-            [libgtk-3-0t64]='GTK3 Library'
-            [libxss1]='XScreenSaver'
-            [libasound2t64]='ALSA Sound'
-            [dbus]='DBus'
-            [dbus-x11]='DBus X11'
-        )
+        # Массив пакетов для установки
+        packages=(wget xdotool x11-apps libgtk-3-0t64 libxss1 libasound2t64 dbus dbus-x11)
         
-        # Установка с прогрессом
-        for pkg in \"\${!packages[@]}\"; do
-            ubuntu_msg \"Installing \${packages[\$pkg]} (\$pkg)...\"
-            if ! apt-get install -qq -y --allow-downgrades --allow-remove-essential \"\$pkg\" >/dev/null 2>&1; then
-                ubuntu_msg \"\033[1;31mFailed to install \${packages[\$pkg]} (\$pkg)\033[0m\"
+        for pkg in \"\${packages[@]}\"; do
+            ubuntu_msg \"Installing \$pkg...\"
+            install_output=\$(apt-get install -y --allow-downgrades --allow-remove-essential \"\$pkg\" 2>&1)
+            if [ \$? -ne 0 ]; then
+                ubuntu_error \"Failed to install \$pkg\" \"\$install_output\"
                 exit 1
             fi
         done
         
-        # Проверка ключевых пакетов
-        ubuntu_msg 'Verifying installations...'
+        # Проверка установки
+        failed_pkgs=()
         for pkg in wget xdotool dbus; do
             if ! dpkg -l | grep -q \"^ii  \$pkg\"; then
-                ubuntu_msg \"\033[1;31mCritical package \$pkg missing!\033[0m\"
-                exit 1
+                failed_pkgs+=(\"\$pkg\")
             fi
         done
         
-        ubuntu_msg '\033[1;32mAll packages installed successfully!\033[0m'
+        if [ \${#failed_pkgs[@]} -gt 0 ]; then
+            ubuntu_error \"Critical packages missing\" \"Failed packages: \${failed_pkgs[*]}\"
+            exit 1
+        fi
+        
+        ubuntu_msg \"${GREEN}Ubuntu environment configured successfully${NC}\"
     " || {
-    error_msg "Failed to configure Ubuntu environment"
+    error_msg "Ubuntu configuration failed"
+    echo -e "${RED}Last error output:${NC}"
+    echo -e "$(tail -n 20 /data/data/com.termux/files/usr/var/lib/proot-distro/installed-rootfs/ubuntu/root/.bash_history 2>&1)"
     exit 1
 }
 
