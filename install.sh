@@ -120,7 +120,7 @@ install_base() {
         MAGENTA='\033[1;35m'
         NC='\033[0m'
         info_msg() {
-            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${MAGENTA}$1${NC} \"
+            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${MAGENTA}\$1${NC} \"
         }
         
         info_msg \"Updating packages...\"
