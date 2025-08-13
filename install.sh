@@ -102,15 +102,15 @@ install_base() {
 
     info_msg "Installing Ubuntu..."
     # Check if Ubuntu is installed
- if ! proot-distro install ubuntu 2>&1 | grep -q "already installed"; then
-     if [ $? -eq 0 ]; then
-         success_msg "Ubuntu installed successfully"
+     if ! proot-distro install ubuntu 2>&1 | grep -q "already installed"; then
+         if [ $? -eq 0 ]; then
+             success_msg "Ubuntu installed successfully"
+         else
+             error_msg "Failed to install Ubuntu"
+         fi
      else
-         error_msg "Failed to install Ubuntu"
+         info_msg "Ubuntu is already installed"
      fi
- else
-     info_msg "Ubuntu is already installed"
- fi
 
     # Базовая настройка Ubuntu
     info_msg "Configuring Ubuntu environment..."
