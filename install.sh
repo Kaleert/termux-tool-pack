@@ -141,11 +141,7 @@ install_base() {
         
         # Update packages
         info_msg \"Updating package lists...\"
-        if ! apt-get update -qq 2> /tmp/apt-update-error.log 2>&1; then
-            error_msg \"Failed to update package lists. See error above:\"
-            cat /tmp/apt-update-error.log | awk '{print "\033[31m" $0 "\033[0m"}'
-            exit 1
-        fi
+        apt-get update -y -qq >/dev/null 2>&1 || true
     
         # Package list
         packages=(
