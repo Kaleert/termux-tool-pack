@@ -122,41 +122,56 @@ install_base() {
     info_msg "Configuring Ubuntu environment..."
     proot-distro login ubuntu -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
-        $(declare -f ubuntu_msg)
         
-        ubuntu_msg 'Updating packages...'
-        apt-get update -qq -y >/dev/null 2>&1
+        # Определяем цветную функцию внутри proot
+        ubuntu_msg() {
+            echo -e \"\033[1;37m[\033[1;33mUbuntu\033[1;37m] \033[1;33m\$1\033[0m\"
+        }
         
-        # Массив пакетов для установки
-        packages=(
-            wget
-            xdotool
-            x11-apps
-            libgtk-3-0t64
-            libxss1
-            libasound2t64
-            dbus
-            dbus-x11
+        # Установка зависимостей для цветного вывода
+        if ! command -v tput >/dev/null; then
+            apt-get install -y ncurses-bin >/dev/null 2>&1
+        fi
+        
+        ubuntu_msg 'Updating package lists...'
+        apt-get update -qq -y >/dev/null 2>&1 || {
+            ubuntu_msg '\033[1;31mFailed to update packages\033[0m'
+            exit 1
+        }
+        
+        # Массив пакетов с человеко-читаемыми именами
+        declare -A packages=(
+            [wget]='Wget'
+            [xdotool]='Xdotool'
+            [x11-apps]='X11 Apps'
+            [libgtk-3-0t64]='GTK3 Library'
+            [libxss1]='XScreenSaver'
+            [libasound2t64]='ALSA Sound'
+            [dbus]='DBus'
+            [dbus-x11]='DBus X11'
         )
         
-        # Установка каждого пакета с отдельным сообщением
-        for pkg in \"\${packages[@]}\"; do
-            ubuntu_msg \"Installing \$pkg...\"
-            apt-get install -qq -y --allow-downgrades --allow-remove-essential \"\$pkg\" >/dev/null 2>&1 || {
-                ubuntu_msg \"Failed to install \$pkg\"
-                exit 1
-            }
-        done
-        
-        # Проверка установленных пакетов
-        for pkg in wget xdotool dbus; do
-            if ! dpkg -l | grep -q \"^ii  \$pkg\"; then
-                ubuntu_msg \"Package \$pkg not installed correctly\"
+        # Установка с прогрессом
+        for pkg in \"\${!packages[@]}\"; do
+            ubuntu_msg \"Installing \${packages[\$pkg]} (\$pkg)...\"
+            if ! apt-get install -qq -y --allow-downgrades --allow-remove-essential \"\$pkg\" >/dev/null 2>&1; then
+                ubuntu_msg \"\033[1;31mFailed to install \${packages[\$pkg]} (\$pkg)\033[0m\"
                 exit 1
             fi
         done
+        
+        # Проверка ключевых пакетов
+        ubuntu_msg 'Verifying installations...'
+        for pkg in wget xdotool dbus; do
+            if ! dpkg -l | grep -q \"^ii  \$pkg\"; then
+                ubuntu_msg \"\033[1;31mCritical package \$pkg missing!\033[0m\"
+                exit 1
+            fi
+        done
+        
+        ubuntu_msg '\033[1;32mAll packages installed successfully!\033[0m'
     " || {
-    error_msg "Failed to configure Ubuntu"
+    error_msg "Failed to configure Ubuntu environment"
     exit 1
 }
 
