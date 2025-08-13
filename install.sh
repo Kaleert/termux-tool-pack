@@ -137,6 +137,11 @@ install_base() {
     
         # Main installation process
         info_msg \"Starting package installation...\"
+        sleep 1
+        
+        info_msg \"Fixing apt & dpkg...\"
+        dpkg --configure -a
+        apt-get install -f -y
         export DEBIAN_FRONTEND=noninteractive
         
         # Update packages
