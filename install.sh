@@ -115,12 +115,22 @@ install_base() {
     # Базовая настройка Ubuntu
     info_msg "Configuring Ubuntu environment..."
     proot-distro login ubuntu -- bash -c "
-        YELLOW='\033[1;33m'
-        CYAN='\033[1;36m'
-        MAGENTA='\033[1;35m'
-        NC='\033[0m'
+        NC='\033[0m'          # No Color
+        CYAN='\033[0;36m'     # Cyan
+        MAGENTA='\033[0;35m'  # Magenta
+        GREEN='\033[0;32m'    # Green
+        RED='\033[0;31m'      # Red
+        
         info_msg() {
             echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${MAGENTA}\$1${NC} \"
+        }
+        
+        success_msg() {
+            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${GREEN}$1${NC}\"
+        }
+        
+        error_msg() {
+            echo -e \"${NC}[${CYAN}Ubuntu${NC}] ${RED}$1${NC}\"
         }
         
         info_msg \"Updating packages...\"
