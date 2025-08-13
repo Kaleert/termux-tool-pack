@@ -156,7 +156,7 @@ install_base() {
         info_msg \"Installing required packages...\"
         for pkg in \"${packages[@]}\"; do
             info_msg \"Installing $pkg...\"
-            if apt-get install -qq -y --allow-downgrades --allow-remove-essential "$pkg" >/dev/null 2>&1; then
+            if apt-get install -qq -y --allow-downgrades --allow-remove-essential \"$pkg\" >/dev/null 2>&1; then
                 success_msg \"$pkg installed successfully\"
             else
                 error_msg \"Failed to install $pkg\"
