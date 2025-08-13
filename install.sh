@@ -136,12 +136,20 @@ install_base() {
         }
     
         # Main installation process
-        info_msg \"Starting package installation...\"
-        sleep 1
+        info_msg \"Fixing dpkg...\"
+        (
+            dpkg --configure -a >/dev/null 2>&1 &
+            pid=\$!
+            spin='-\\|/'
+            i=0
+            while kill -0 \$pid 2>/dev/null; do
+                i=\$(( (i+1) %4 ))
+                printf \"\\r [\${spin:\$i:1}] Работаю...\"
+                sleep 0.1
+            done
+            printf \"\\r [✓] Готово!    \\n\"
+        ) > /dev/tty
         
-        info_msg \"Fixing apt & dpkg...\"
-        dpkg --configure -a >/dev/null 2>&1
-        apt-get install -f -y >/dev/null 2>&1
         export DEBIAN_FRONTEND=noninteractive
         
         # Update packages
