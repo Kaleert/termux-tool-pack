@@ -42,6 +42,10 @@ info_msg() {
     echo "${YELLOW}[INFO] ${CYAN}$1${NC}"
 }
 
+ubuntu_msg() {
+    echo "${WHITE}[${ORANGE}Ubuntu${WHITE}] ${YELLOW}$1${NC}\n"
+}
+
 install_client() {
     info_msg "Checking KTP installation..."
     
@@ -118,23 +122,36 @@ install_base() {
     info_msg "Configuring Ubuntu environment..."
     proot-distro login ubuntu -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
-        # Обновляем пакеты (с подавлением предупреждений)
+        $(declare -f ubuntu_msg)
+        
+        ubuntu_msg 'Updating packages...'
         apt-get update -qq -y >/dev/null 2>&1
         
-        # Устанавливаем зависимости (с явным указанием версий для избежания конфликтов)
-        apt-get install -qq -y --allow-downgrades --allow-remove-essential \
-            wget \
-            xdotool \
-            x11-apps \
-            libgtk-3-0t64 \
-            libxss1 \
-            libasound2t64 \
-            dbus \
-            dbus-x11 >/dev/null 2>&1
+        # Массив пакетов для установки
+        packages=(
+            wget
+            xdotool
+            x11-apps
+            libgtk-3-0t64
+            libxss1
+            libasound2t64
+            dbus
+            dbus-x11
+        )
         
-        # Проверяем успешность установки
+        # Установка каждого пакета с отдельным сообщением
+        for pkg in \"\${packages[@]}\"; do
+            ubuntu_msg \"Installing \$pkg...\"
+            apt-get install -qq -y --allow-downgrades --allow-remove-essential \"\$pkg\" >/dev/null 2>&1 || {
+                ubuntu_msg \"Failed to install \$pkg\"
+                exit 1
+            }
+        done
+        
+        # Проверка установленных пакетов
         for pkg in wget xdotool dbus; do
             if ! dpkg -l | grep -q \"^ii  \$pkg\"; then
+                ubuntu_msg \"Package \$pkg not installed correctly\"
                 exit 1
             fi
         done
@@ -142,6 +159,7 @@ install_base() {
     error_msg "Failed to configure Ubuntu"
     exit 1
 }
+
     install_client || {
     error_msg "KTP installation failed"
     exit 1
