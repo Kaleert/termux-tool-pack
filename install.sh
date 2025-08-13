@@ -144,7 +144,7 @@ install_base() {
             i=0
             while kill -0 \$pid 2>/dev/null; do
                 i=\$(( (i+1) %4 ))
-                printf \"\\r [\${spin:\$i:1}] Работаю...\"
+                printf \"\\r [\${spin:\$i:1}] Работаю...\\n\"
                 sleep 0.1
             done
         ) > /dev/tty
