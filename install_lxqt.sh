@@ -10,21 +10,21 @@ NC='\033[0m'
 
 show_header() {
     clear
-    echo -e "${GREEN}"
-    echo -e "██╗  ██╗██╗  ██╗ ██████╗ ████████╗"
-    echo -e "██║  ██║╚██╗██╔╝██╔═══██╗╚══██╔══╝"
-    echo -e "███████║ ╚███╔╝ ██║   ██║   ██║   "
-    echo -e "██╔══██║ ██╔██╗ ██║   ██║   ██║   "
-    echo -e "██║  ██║██╔╝ ██╗╚██████╔╝   ██║   "
-    echo -e "╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝    ╚═╝   "
-    echo -e "${NC}"
-    echo -e "${YELLOW}LXQt Desktop Installation${NC}"
-    echo -e "----------------------------"
+    echo "${GREEN}"
+    echo "██╗  ██╗██╗  ██╗ ██████╗ ████████╗"
+    echo "██║  ██║╚██╗██╔╝██╔═══██╗╚══██╔══╝"
+    echo "███████║ ╚███╔╝ ██║   ██║   ██║   "
+    echo "██╔══██║ ██╔██╗ ██║   ██║   ██║   "
+    echo "██║  ██║██╔╝ ██╗╚██████╔╝   ██║   "
+    echo "╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝    ╚═╝   "
+    echo "${NC}"
+    echo "${YELLOW}LXQt Desktop Installation${NC}"
+    echo "----------------------------"
 }
 
-error_msg() { echo -e "${RED}[✗]${NC} $1" >&2; exit 1; }
-success_msg() { echo -e "${LIME}[✓]${NC} $1"; }
-info_msg() { echo -e "${YELLOW}[INFO] ${CYAN}$1${NC}"; }
+error_msg() { echo "${RED}[✗]${NC} $1" >&2; exit 1; }
+success_msg() { echo "${LIME}[✓]${NC} $1"; }
+info_msg() { echo "${YELLOW}[INFO] ${CYAN}$1${NC}"; }
 
 install_lxqt() {
     show_header
@@ -32,8 +32,8 @@ install_lxqt() {
     info_msg "Installing LXQt Desktop in Ubuntu environment..."
     proot-distro login ubuntu -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
-        apt update -y >/dev/null
-        apt install -y lxqt-core xorg lightdm qterminal >/dev/null || exit 1
+        apt-get update -qq -y >/dev/null 2>&1
+        apt-get install -qq -y --allow-downgrades --allow-remove-essential lxqt-core xorg lightdm qterminal >/dev/null || exit 1
         
         echo '[SeatDefaults]
         autologin-user=ubuntu' > /etc/lightdm/lightdm.conf.d/50-autologin.conf
