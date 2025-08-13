@@ -138,6 +138,7 @@ install_base() {
         }
         
         # Захватываем вывод обновления пакетов
+        ubuntu_msg \"Updating packages...\"
         update_output=\$(apt-get update -qq -y 2>&1)
         if [ \$? -ne 0 ]; then
             ubuntu_error \"Package update failed\" \"\$update_output\"
@@ -148,7 +149,7 @@ install_base() {
         
         # Массив пакетов для установки
         packages=(wget xdotool x11-apps libgtk-3-0t64 libxss1 libasound2t64 dbus dbus-x11)
-        
+         
         for pkg in \"\${packages[@]}\"; do
             ubuntu_msg \"Installing \$pkg...\"
             install_output=\$(apt-get install -y --allow-downgrades --allow-remove-essential \"\$pkg\" 2>&1)
