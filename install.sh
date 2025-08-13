@@ -115,6 +115,11 @@ install_base() {
     # Базовая настройка Ubuntu
     info_msg "Configuring Ubuntu environment..."
     proot-distro login ubuntu -- bash -c "
+        info_msg() {
+            echo \"\033[0m[\033[1;36mUbuntu\033[0m]\033[1;35m $1\033[0m\"
+        }
+        
+        info msg \"Updating packages...\"
         export DEBIAN_FRONTEND=noninteractive
         # Обновляем пакеты (с подавлением предупреждений)
         apt-get update -qq -y >/dev/null 2>&1
