@@ -128,23 +128,43 @@ install_base() {
         # Обновляем пакеты (с подавлением предупреждений)
         apt-get update -qq -y >/dev/null 2>&1
         
-        # Устанавливаем зависимости (с явным указанием версий для избежания конфликтов)
-        apt-get install -qq -y --allow-downgrades --allow-remove-essential \
-            wget \
-            xdotool \
-            x11-apps \
-            libgtk-3-0t64 \
-            libxss1 \
-            libasound2t64 \
-            dbus \
-            dbus-x11 >/dev/null 2>&1
+        # Пакеты для установки
+        packages=(
+            wget
+            xdotool
+            x11-apps
+            libgtk-3-0t64
+            libxss1
+            libasound2t64
+            dbus
+            dbus-x11
+        )
         
-        # Проверяем успешность установки
-        for pkg in wget xdotool dbus; do
-            if ! dpkg -l | grep -q \"^ii  \$pkg\"; then
+        info_msg \"Updating package lists...\"
+        apt-get update -qq >/dev/null 2>&1
+        
+        info_msg \"Installing required packages...\"
+        for pkg in \"${packages[@]}\"; do
+            info_msg \"Installing $pkg...\"
+            if apt-get install -qq -y --allow-downgrades --allow-remove-essential "$pkg" >/dev/null 2>&1; then
+                success_msg \"$pkg installed successfully\"
+            else
+                error_msg \"Failed to install $pkg\"
                 exit 1
             fi
         done
+        
+        info_msg \"Verifying installed packages...\"
+        for pkg in \"${packages[@]}\"; do
+            if dpkg -l | grep -q \"^ii  $pkg\"; then
+                success_msg \"$pkg verified and installed correctly\"
+            else
+                error_msg \"$pkg is not installed properly\"
+                exit 1
+            fi
+        done
+        
+        success_msg \"All packages installed successfully!\"
     " || {
     error_msg "Failed to configure Ubuntu"
     exit 1
