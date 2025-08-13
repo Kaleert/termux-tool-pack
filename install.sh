@@ -141,7 +141,7 @@ install_base() {
         
         # Update packages
         info_msg \"Updating package lists...\"
-        if ! apt-get update -qq >/dev/null 2>&1; then
+        if ! apt-get update -y -qq >/dev/null 2>&1; then
             error_msg \"Failed to update package lists\"
             exit 1
         fi
