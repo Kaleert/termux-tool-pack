@@ -10,7 +10,7 @@ import webbrowser
 
 # Конфигурация
 REPO_NAME = "termux-tool-pack"
-REPO_BASE_URL = "https://raw.githubusercontent.com/kaleert/{repo}/main".format(repo=REPO_NAME)
+REPO_BASE_URL = "https://raw.githubusercontent.com/kaleert/{repo}/master".format(repo=REPO_NAME)
 X11_DISPLAY = ":0"
 SOCAT_PORT = "6000"
 PROOT_DISTRO = "ubuntu"
