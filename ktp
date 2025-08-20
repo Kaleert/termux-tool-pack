@@ -1,0 +1,565 @@
+#!/data/data/com.termux/files/usr/bin/python3
+
+import os
+import subprocess
+import time
+import signal
+import sys
+import shutil
+import argparse
+import webbrowser
+import json
+import requests
+from urllib.parse import urljoin
+
+RED='\033[1;31m'
+LIME='\033[1;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[1;36m'
+MAGENTA='\033[1;35m'
+NC='\033[0m'
+
+REPO_NAME = "termux-tool-pack"
+REPO_OWNER = "kaleert"
+REPO_BASE_URL = f"https://raw.githubusercontent.com/{REPO_OWNER}/{REPO_NAME}/master"
+INFO_URL = f"{REPO_BASE_URL}/info.json"
+X11_DISPLAY = ":0"
+SOCAT_PORT = "6000"
+PROOT_DISTRO = "ubuntu"
+VSCODE_CMD = "code --no-sandbox --disable-gpu --user-data-dir ~/.vscode-data --verbose"
+BRAVE_CMD = "brave-browser --no-sandbox --disable-gpu 2>/dev/null"
+LXQT_CMD = "startlxqt"
+DEFAULT_SIZE = [1080, 2150]
+DEFAULT_POS = [0, 0]
+
+CLIENT_VERSION = "1.0.4"
+
+APPS = {
+    "vscode": {
+        "name": "Visual Studio Code",
+        "cmd": VSCODE_CMD,
+        "install": f"curl -s {REPO_BASE_URL}/install_vscode.sh | sh"
+    },
+    "brave": {
+        "name": "Brave Browser",
+        "cmd": BRAVE_CMD,
+        "install": f"curl -s {REPO_BASE_URL}/install_brave.sh | sh"
+    },
+    "lxqt": {
+        "name": "LXQt Desktop",
+        "cmd": LXQT_CMD,
+        "install": f"curl -s {REPO_BASE_URL}/install_lxqt.sh | sh"
+    }
+}
+
+def fix_locale_issue():
+    """Исправление проблемы с локалью."""
+    try:
+        os.environ['LC_ALL'] = 'C.UTF-8'
+        os.environ['LANG'] = 'C.UTF-8'
+        os.environ['LANGUAGE'] = 'C.UTF-8'
+    except:
+        pass
+
+def fix_dbus_issue():
+    """Исправление проблемы с D-Bus внутри proot."""
+    try:
+        fix_cmd = """
+            if [ ! -f /etc/machine-id ]; then
+                dbus-uuidgen --ensure
+            fi
+            
+            if [ -f /etc/machine-id ]; then
+                machine_id=$(cat /etc/machine-id | tr -d '[:space:]')
+                if [ ${#machine_id} -ne 32 ]; then
+                    echo "Исправляем machine-id..."
+                    dbus-uuidgen --ensure
+                fi
+            fi
+            
+            mkdir -p /var/run/dbus
+            mkdir -p /var/lib/dbus
+        """
+        
+        result = subprocess.run(
+            ["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", fix_cmd],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode != 0:
+            print(f"{YELLOW}Предупреждение: не удалось исправить D-Bus: {result.stderr}{NC}")
+            
+    except Exception as e:
+        print(f"{YELLOW}Предупреждение: ошибка при исправлении D-Bus: {e}{NC}")
+
+def check_dependencies():
+    """Проверка необходимых программ."""
+    required = ["termux-x11", "proot-distro", "socat", "xdotool"]
+    missing = []
+    for cmd in required:
+        if shutil.which(cmd) is None:
+            missing.append(cmd)
+
+    if missing:
+        print(f"{YELLOW}Установите зависимости: {' '.join(missing)}{NC}")
+        print(f"{CYAN}Команды для установки:{NC}")
+        print(f"{CYAN}pkg install x11-repo -y && pkg install termux-x11 proot-distro socat xdotool -y{NC}")
+        sys.exit(1)
+
+def check_updates():
+    try:
+        response = requests.get(INFO_URL, timeout=10)
+        if response.status_code == 200:
+            info = response.json()
+            latest_version = info.get('version', '0')
+
+            if latest_version != CLIENT_VERSION:
+                print(f"{LIME}Доступно обновление:{NC} {YELLOW}v{CLIENT_VERSION} -> {CYAN}v{latest_version}{NC}")
+                print(f"{CYAN}Изменения: {info.get('changes', 'Нет информации')}{NC}")
+                print(f"{CYAN}{info.get('description', '')}{NC}")
+                print(f"{LIME}Для обновления выполните: ktp update{NC}")
+                return True
+        return False
+    except (requests.RequestException, json.JSONDecodeError):
+        return False
+
+def update_client():
+    print(f"{MAGENTA}Обновление клиента...{NC}")
+    try:
+        response = requests.get(f"{REPO_BASE_URL}/ktp", timeout=10)
+        if response.status_code == 200:
+            with open(sys.argv[0], 'wb') as f:
+                f.write(response.content)
+
+            subprocess.run(["chmod", "+x", sys.argv[0]])
+
+            print(f"{LIME}Клиент успешно обновлен!{NC}")
+            print(f"{CYAN}Перезапустите клиент для применения изменений{NC}")
+            return True
+        else:
+            print(f"{RED}Не удалось скачать обновление{NC}")
+            return False
+    except requests.RequestException as e:
+        print(f"{RED}Ошибка при обновлении: {e}{NC}")
+        return False
+
+def show_version():
+    print(f"{MAGENTA}{REPO_NAME} Client v{CLIENT_VERSION}")
+    print(f"Maintainer: {REPO_OWNER}")
+    print(f"GitHub: https://github.com/{REPO_OWNER}/{REPO_NAME}{NC}")
+
+    print(f"{CYAN}\nПроверка обновлений...{NC}")
+    if check_updates():
+        print(f"{CYAN}\nДля обновления выполните: ktp update{NC}")
+    else:
+        print(f"{LIME}У вас последняя версия!{NC}")
+
+def cleanup(signum, frame):
+    print("\nЗавершение процессов...")
+    subprocess.run(["pkill", "-f", "termux-x11"], stderr=subprocess.DEVNULL)
+    subprocess.run(["pkill", "-f", "socat"], stderr=subprocess.DEVNULL)
+    for app in APPS.values():
+        subprocess.run(["pkill", "-f", app["cmd"].split()[0]], stderr=subprocess.DEVNULL)
+    sys.exit(0)
+
+def is_app_installed(app_key):
+    try:
+        result = subprocess.run(
+            ["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c",
+             f"command -v {APPS[app_key]['cmd'].split()[0]}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        return result.returncode == 0
+    except subprocess.CalledProcessError:
+        return False
+
+def install_app(app_key):
+    print(f"Установка {APPS[app_key]['name']}...")
+    try:
+        subprocess.run(
+            ["bash", "-c", APPS[app_key]["install"]],
+            check=True
+        )
+        print(f"{APPS[app_key]['name']} успешно установлен!")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Ошибка при установке {APPS[app_key]['name']}: {e}")
+        return False
+
+def choose_app_interactively():
+    print(f"\n{REPO_NAME} - Управление приложениями X11")
+    print("Выберите приложение для запуска:")
+
+    for i, (key, app) in enumerate(APPS.items(), 1):
+        status = "Установлено" if is_app_installed(key) else "Не установлено"
+        print(f"{i}) {app['name']} [{status}]")
+
+    print("0) Выход")
+
+    while True:
+        try:
+            choice = int(input("Ваш выбор (0-3): "))
+            if choice == 0:
+                sys.exit(0)
+            elif 1 <= choice <= len(APPS):
+                selected_key = list(APPS.keys())[choice-1]
+                if not is_app_installed(selected_key):
+                    if input(f"{APPS[selected_key]['name']} не установлен. Установить сейчас? (y/N): ").lower() == 'y':
+                        if install_app(selected_key):
+                            return APPS[selected_key]["cmd"]
+                        else:
+                            continue
+                    else:
+                        continue
+                return APPS[selected_key]["cmd"]
+            print("Неверный выбор. Попробуйте снова.")
+        except ValueError:
+            print("Пожалуйста, введите число.")
+
+def list_apps():
+    print(f"\n{REPO_NAME} - Доступные приложения:")
+    for i, (key, app) in enumerate(APPS.items(), 1):
+        status = "Установлено" if is_app_installed(key) else "Не установлено"
+        print(f"{i}. {app['name']} [{status}]")
+    print("\nДля установки используйте:")
+    print(f"  {sys.argv[0]} install <app>")
+    print("Доступные приложения для установки: vscode, brave, lxqt")
+
+def start_termux_x11():
+    X11_SOCKET_PATH = "/data/data/com.termux/files/usr/tmp/.X11-unix/X0"
+    
+    x11_running = subprocess.run(["pgrep", "-x", "termux-x11"], 
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if x11_running.returncode == 0:
+        print(f"{LIME}Termux-X11 уже запущен{NC}")
+        return True
+    
+    print(f"{CYAN}Запуск Termux-X11...{NC}")
+    
+    subprocess.Popen(["termux-x11", X11_DISPLAY],
+                   stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL)
+    
+    result = subprocess.run([
+        "am", "start", "--user", "0",
+        "-n", "com.termux.x11/com.termux.x11.MainActivity",
+        "-a", "android.intent.action.MAIN"
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    if result.returncode != 0:
+        print("Не удалось запустить Activity Termux:X11")
+        print("Убедитесь, что приложение Termux:X11 установлено")
+        return False
+    
+    print("Откройте приложение Termux:X11 вручную если оно не появилось")
+    print("Ожидание запуска X11 сервера...")
+    
+    for i in range(30):
+        if os.path.exists(X11_SOCKET_PATH):
+            print(f"{LIME}X11 сервер запущен{NC}")
+            return True
+        time.sleep(1)
+    
+    print(f"{RED}X11 сервер не запустился")
+    print("Проверьте:")
+    print("  1. Установлено ли приложение Termux:X11")
+    print("  2. Даны ли все необходимые разрешения")
+    print(f"  3. Запустите Termux:X11 вручную и попробуйте снова{NC}")
+    return False
+
+def check_vscode_installation():
+    print("Проверка установки VS Code...")
+    try:
+        result = subprocess.run(
+            ["proot-distro", "login", PROOT_DISTRO, "--", "which", "code"],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode == 0:
+            print("VS Code установлен")
+            return True
+        else:
+            print("VS Code не найден")
+            return False
+    except Exception as e:
+        print(f"Ошибка при проверке VS Code: {e}")
+        return False
+
+def run_app(app_cmd, size, pos):
+    X11_SOCKET_PATH = "/data/data/com.termux/files/usr/tmp/.X11-unix/X0"
+
+    fix_locale_issue()
+
+    if "code" in app_cmd and not check_vscode_installation():
+        print(f"{RED}VS Code не установлен или установлен неправильно{NC}")
+        print(f"{YELLOW}Попробуйте переустановить: ktp install vscode{NC}")
+        return
+
+    if not start_termux_x11():
+        return
+
+    socat_running = subprocess.run(["pgrep", "-x", "socat"],
+                                 stdout=subprocess.PIPE).stdout.decode().strip()
+    if socat_running:
+        subprocess.run(["pkill", "-x", "socat"], stderr=subprocess.DEVNULL)
+        time.sleep(1)
+    
+    print(f"{CYAN}Запуск проброса X11...{NC}")
+    subprocess.Popen(
+        ["socat", f"TCP-LISTEN:{SOCAT_PORT},reuseaddr,fork",
+         f"UNIX-CLIENT:{X11_SOCKET_PATH}"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    time.sleep(2)
+
+    check_display_cmd = f"""
+        export DISPLAY=127.0.0.1{X11_DISPLAY};
+        timeout 5s xset -q >/dev/null 2>&1 && echo X11_READY || echo X11_NOT_READY
+    """
+    result = subprocess.run(
+        ["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", check_display_cmd],
+        capture_output=True, text=True
+    )
+    if "X11_READY" not in result.stdout:
+        print(f"{RED}X11 сервер недоступен{NC}")
+        print(f"{YELLOW}Проверьте подключение в приложении Termux:X11{NC}")
+        return
+    print(f"{LIME}X11 сервер доступен{NC}")
+
+    print(f"{CYAN}Исправление проблем с D-Bus...{NC}")
+    fix_dbus_issue()
+
+    print(f"{CYAN}Запуск приложения...{NC}")
+    
+    if "code" in app_cmd:
+        proot_cmd = f"""
+            export DISPLAY=127.0.0.1{X11_DISPLAY};
+            export PULSE_SERVER=127.0.0.1;
+            export LC_ALL=C.UTF-8;
+            export LANG=C.UTF-8;
+            export XDG_RUNTIME_DIR=/tmp/runtime-$USER;
+            
+            mkdir -p /tmp/runtime-$USER
+            chmod 700 /tmp/runtime-$USER
+            
+            if [ ! -f /etc/machine-id ] || [ $(cat /etc/machine-id | wc -c) -ne 33 ]; then
+                dbus-uuidgen --ensure 2>/dev/null || true
+            fi
+            
+            echo "Запуск VS Code..." > /tmp/vscode.log
+            code --no-sandbox --disable-gpu --user-data-dir ~/.vscode-data --verbose >> /tmp/vscode.log 2>&1 &
+            VSCODE_PID=$!
+            echo "PID: $VSCODE_PID" >> /tmp/vscode.log
+            
+            sleep 5
+            if ps -p $VSCODE_PID > /dev/null; then
+                echo "VS Code запущен успешно" >> /tmp/vscode.log
+                wait $VSCODE_PID
+            else
+                echo "VS Code завершился" >> /tmp/vscode.log
+                cat /tmp/vscode.log
+                exit 1
+            fi
+        """
+    else:
+        proot_cmd = f"""
+            export DISPLAY=127.0.0.1{X11_DISPLAY};
+            export PULSE_SERVER=127.0.0.1;
+            export LC_ALL=C.UTF-8;
+            export LANG=C.UTF-8;
+            
+            if [ ! -f /etc/machine-id ] || [ $(cat /etc/machine-id | wc -c) -ne 33 ]; then
+                dbus-uuidgen --ensure 2>/dev/null || true
+            fi
+            
+            {app_cmd}
+        """
+
+    print(f"{CYAN}Режим диагностики (логи будут показаны при ошибке){NC}")
+    process = subprocess.Popen(
+        ["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", proot_cmd],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    # Ждем завершения с таймаутом
+    try:
+        stdout, stderr = process.communicate(timeout=10)
+        
+        if process.returncode != 0:
+            print(f"{RED}Ошибка при запуске приложения!{NC}")
+            print("Логи:")
+            if stdout:
+                print(f"STDOUT: {stdout}")
+            if stderr:
+                print(f"STDERR: {stderr}")
+            
+            if "code" in app_cmd:
+                print(f"{CYAN}\nДополнительная диагностика VS Code:{NC}")
+                try:
+                    log_result = subprocess.run(
+                        ["proot-distro", "login", PROOT_DISTRO, "--", "cat", "/tmp/vscode.log"],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    if log_result.stdout:
+                        print(log_result.stdout)
+                except:
+                    print(f"{RED}Не удалось прочитать логи VS Code{NC}")
+            
+            return
+        else:
+            print(f"{LIME}Приложение завершено успешно{NC}")
+            
+    except subprocess.TimeoutExpired:
+        print(f"{LIME}Приложение запущено в фоновом режиме{NC}")
+        print(f"{LIME}Переключитесь в приложение Termux:X11 чтобы увидеть окно{NC}")
+        
+        if size:
+            time.sleep(3)
+            resize_window(size[0], size[1])
+        elif DEFAULT_SIZE:
+            time.sleep(3)
+            resize_window(DEFAULT_SIZE[0], DEFAULT_SIZE[1])
+            
+        if pos:
+            time.sleep(1)
+            move_window(pos[0], pos[1])
+        elif DEFAULT_POS:
+            time.sleep(1)
+            move_window(DEFAULT_POS[0], DEFAULT_POS[1])
+        
+        try:
+            process.wait()
+            print("{LIME}Приложение завершено{NC}")
+        except KeyboardInterrupt:
+            print("{YELLOW}\nПриложение прервано пользователем{NC}")
+            process.terminate()
+
+def resize_window(width, height):
+    try:
+        resize_cmd = f"""
+            export DISPLAY=127.0.0.1{X11_DISPLAY};
+            WIN_ID=$(xdotool getwindowfocus 2>/dev/null);
+            if [ -n "$WIN_ID" ]; then
+                xdotool windowsize $WIN_ID {width} {height};
+                echo "SUCCESS"
+            fi
+        """
+        result = subprocess.run(["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", resize_cmd],
+                              capture_output=True, text=True, timeout=10)
+        if "SUCCESS" in result.stdout:
+            print(f"{LIME}Размер окна изменен на {width}x{height}{NC}")
+            return True
+        else:
+            print(f"{RED}Не удалось изменить размер окна (окно не найдено){NC}")
+            return False
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        print(f"{RED}Ошибка при изменении размера окна{NC}")
+        return False
+
+def move_window(x, y):
+    try:
+        move_cmd = f"""
+            export DISPLAY=127.0.0.1{X11_DISPLAY};
+            WIN_ID=$(xdotool getwindowfocus 2>/dev/null);
+            if [ -n "$WIN_ID" ]; then
+                xdotool windowmove $WIN_ID {x} {y};
+                echo "SUCCESS"
+            fi
+        """
+        result = subprocess.run(["proot-distro", "login", PROOT_DISTRO, "--", "bash", "-c", move_cmd],
+                              capture_output=True, text=True, timeout=10)
+        if "SUCCESS" in result.stdout:
+            print(f"{LIME}Окно перемещено в позицию ({x}, {y}){NC}")
+            return True
+        else:
+            print(f"{RED}Не удалось переместить окно (окно не найдено){NC}")
+            return False
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        print(f"{RED}Ошибка при перемещении окна{NC}")
+        return False
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description=f"{REPO_NAME} - Запуск графических приложений в Termux через X11",
+        epilog=f"Примеры:\n  {sys.argv[0]} run --app vscode\n  {sys.argv[0]} install brave\n  {sys.argv[0]} list"
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Доступные команды")
+
+    run_parser = subparsers.add_parser("run", help="Запуск приложения (по умолчанию)")
+    run_parser.add_argument("--app", "-a", choices=APPS.keys(),
+                          help="Выберите приложение для запуска")
+    run_parser.add_argument("--size", "-s", nargs=2, type=int, metavar=("WIDTH", "HEIGHT"),
+                          help="Установить размер окна (ширина высота)")
+    run_parser.add_argument("--pos", "-p", nargs=2, type=int, metavar=("X", "Y"),
+                          help="Установить позицию окна (X Y)")
+
+    install_parser = subparsers.add_parser("install", help="Установка приложения")
+    install_parser.add_argument("app", choices=APPS.keys(), help="Приложение для установки")
+
+    subparsers.add_parser("list", help="Показать список доступных приложений")
+
+    subparsers.add_parser("version", help="Показать версиу клиента")
+
+    subparsers.add_parser("update", help="Обновить клиент")
+
+    resize_parser = subparsers.add_parser("resize", help="Изменить размер окна")
+    resize_parser.add_argument("width", type=int, help="Ширина окна")
+    resize_parser.add_argument("height", type=int, help="Высота окна")
+
+    move_parser = subparsers.add_parser("move", help="Переместить окно")
+    move_parser.add_argument("x", type=int, help="Позиция по X")
+    move_parser.add_argument("y", type=int, help="Позиция по Y")
+
+    parser.add_argument("-v", "--version", action="store_true", help="Показать версию и выйти")
+
+    return parser.parse_args()
+
+def main():
+    fix_locale_issue()
+    check_dependencies()
+    signal.signal(signal.SIGINT, cleanup)
+    args = parse_args()
+
+    if args.version:
+        show_version()
+        sys.exit(0)
+
+    if not hasattr(args, "command"):
+        args.command = "run"
+
+    if args.command == "install":
+        install_app(args.app)
+    elif args.command == "list":
+        list_apps()
+    elif args.command == "version":
+        show_version()
+    elif args.command == "update":
+        update_client()
+    elif args.command == "resize":
+        resize_window(args.width, args.height)
+    elif args.command == "move":
+        move_window(args.x, args.y)
+    elif args.command == "run":
+        check_updates()
+
+        if args.app:
+            app_cmd = APPS[args.app]["cmd"]
+        else:
+            app_cmd = choose_app_interactively()
+
+        size = args.size if args.size else DEFAULT_SIZE
+        pos = args.pos if args.pos else DEFAULT_POS
+        run_app(app_cmd, size, pos)
+    else:
+        print(f"{YELLOW}Неизвестная команда. Используйте --help для справки.{NC}")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"{RED}Необработанная ошибка:{NC} {e}")
+        cleanup(None, None)
