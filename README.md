@@ -2,7 +2,7 @@
 
 Набор инструментов для запуска графических приложений в Termux через X11 сервер.
 
-![Version](https://img.shields.io/badge/version-1.0.4-blueviolet?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.0.4f1-blueviolet?style=for-the-badge)
 ![Stars](https://img.shields.io/github/stars/kaleert/termux-tool-pack?style=for-the-badge&label=stars&color=yellow)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey?style=for-the-badge)
 

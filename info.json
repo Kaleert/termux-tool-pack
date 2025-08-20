@@ -1,7 +1,7 @@
 {
     "package_name": "Kaleert's Tool Pack",
     "maintainer": "Kaleert",
-    "version": "1.0.4",
-    "changes": "Minor bug fixes",
+    "version": "1.0.4f1",
+    "changes": "more bug fixes(",
     "description": "A simple and cool tools for Termux."
 }
